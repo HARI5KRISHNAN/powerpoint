@@ -1,47 +1,207 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Play, Save, Share2 } from "lucide-react"
-import Link from "next/link"
+import { Button } from '@/components/ui/button'
+import { useEditorStore } from '@/lib/store'
+import { useAutoSave } from '@/lib/hooks/use-auto-save'
+import Link from 'next/link'
+import {
+  Undo2,
+  Redo2,
+  Plus,
+  Eye,
+  Download,
+  Save,
+  Sparkles,
+  Share2,
+  ArrowLeft
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface EditorTopbarProps {
-  presentationTitle: string
-  onTitleChange: (title: string) => void
+  onAIAssist?: () => void
+  onPreview?: () => void
+  presentationTitle?: string
 }
 
-export default function EditorTopbar({ presentationTitle, onTitleChange }: EditorTopbarProps) {
+export default function EditorTopbar({
+  onAIAssist,
+  onPreview,
+  presentationTitle = "Untitled Presentation"
+}: EditorTopbarProps) {
+  const {
+    addSlide,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    presentation
+  } = useEditorStore()
+
+  const { lastSaved } = useAutoSave()
+
+  const handleDownload = () => {
+    // Export presentation as JSON
+    const dataStr = JSON.stringify(presentation, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${presentation.title || 'presentation'}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleSave = () => {
+    // The presentation is auto-saved via localStorage
+    // This button is mainly for user feedback
+    alert('Presentation saved to browser storage!')
+  }
+
+  const formatLastSaved = () => {
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - lastSaved.getTime()) / 1000)
+
+    if (diff < 60) return 'just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)} mins ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`
+    return lastSaved.toLocaleDateString()
+  }
+
   return (
-    <div className="h-16 border-b border-border bg-card/50 backdrop-blur flex items-center justify-between px-6">
-      <div>
-        <input
-          type="text"
-          value={presentationTitle}
-          onChange={(e) => onTitleChange(e.target.value)}
-          className="text-lg font-bold bg-transparent border-b border-transparent hover:border-primary/50 focus:border-primary outline-none transition-colors"
-          placeholder="Presentation name"
-        />
-      </div>
+    <div className="border-b border-border/40 bg-card/50 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-6 py-4">
+        {/* Left Section: Back Button & Title */}
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">{presentationTitle}</h1>
+            <p className="text-xs text-muted-foreground">
+              Last saved {formatLastSaved()}
+            </p>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-          <Save className="w-4 h-4" />
-          Save
-        </Button>
+        {/* Middle Section: Editor Actions */}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => addSlide()}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            title="Add New Slide (Ctrl/Cmd + M)"
+          >
+            <Plus className="h-4 w-4" />
+            Add Slide
+          </Button>
 
-        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-          <Share2 className="w-4 h-4" />
-          Share
-        </Button>
+          <div className="flex items-center gap-1 border-l pl-2 ml-2">
+            <Button
+              onClick={undo}
+              disabled={!canUndo()}
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-2",
+                !canUndo() && "opacity-50 cursor-not-allowed"
+              )}
+              title="Undo (Ctrl/Cmd + Z)"
+            >
+              <Undo2 className="h-4 w-4" />
+              Undo
+            </Button>
 
-        <Link href="/present">
+            <Button
+              onClick={redo}
+              disabled={!canRedo()}
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-2",
+                !canRedo() && "opacity-50 cursor-not-allowed"
+              )}
+              title="Redo (Ctrl/Cmd + Shift + Z)"
+            >
+              <Redo2 className="h-4 w-4" />
+              Redo
+            </Button>
+          </div>
+        </div>
+
+        {/* Right Section: Preview & Export Actions */}
+        <div className="flex items-center gap-3">
+          {onAIAssist && (
+            <Button
+              onClick={onAIAssist}
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-transparent"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI Assist
+            </Button>
+          )}
+
+          <Button
+            onClick={handleSave}
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-transparent"
+            title="Save to localStorage"
+          >
+            <Save className="h-4 w-4" />
+            Save
+          </Button>
+
+          <Button
+            onClick={handleDownload}
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-transparent"
+            title="Download as JSON"
+          >
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+
+          {onPreview ? (
+            <Button
+              onClick={onPreview}
+              size="sm"
+              className="gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              Preview
+            </Button>
+          ) : (
+            <Link href="/viewer">
+              <Button size="sm" className="gap-2">
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+            </Link>
+          )}
+
           <Button
             size="sm"
-            className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white gap-2"
+            className="gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
           >
-            <Play className="w-4 h-4" />
-            Present
+            <Share2 className="h-4 w-4" />
+            Share
           </Button>
-        </Link>
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts Info */}
+      <div className="px-6 pb-2 text-xs text-muted-foreground hidden md:block">
+        <span className="mr-4">💡 Keyboard shortcuts:</span>
+        <span className="mr-3">Ctrl+Z (Undo)</span>
+        <span className="mr-3">Ctrl+Shift+Z (Redo)</span>
+        <span className="mr-3">Ctrl+M (New Slide)</span>
       </div>
     </div>
   )
