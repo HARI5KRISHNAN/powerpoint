@@ -21,12 +21,14 @@ interface EditorTopbarProps {
   onAIAssist?: () => void
   onPreview?: () => void
   presentationTitle?: string
+  children?: React.ReactNode
 }
 
 export default function EditorTopbar({
   onAIAssist,
   onPreview,
-  presentationTitle = "Untitled Presentation"
+  presentationTitle = "Untitled Presentation",
+  children
 }: EditorTopbarProps) {
   const {
     addSlide,
@@ -134,6 +136,9 @@ export default function EditorTopbar({
 
         {/* Right Section: Preview & Export Actions */}
         <div className="flex items-center gap-3">
+          {/* Collaboration Panel */}
+          {children}
+
           {onAIAssist && (
             <Button
               onClick={onAIAssist}
