@@ -148,7 +148,7 @@ export default function BackgroundPanel({
                   onClick={() => handlePresetGradient(preset)}
                   className="h-12 rounded-md border border-border hover:ring-2 hover:ring-primary transition-all"
                   style={{
-                    background: \`linear-gradient(\${preset.angle}deg, \${preset.colors.join(", ")})\`,
+                    background: `linear-gradient(${preset.angle}deg, ${preset.colors.join(", ")})`,
                   }}
                   title={preset.name}
                 />
@@ -213,7 +213,7 @@ export default function BackgroundPanel({
             <div
               className="h-16 rounded-md border border-border"
               style={{
-                background: \`linear-gradient(\${gradientAngle}deg, \${gradientColor1}, \${gradientColor2})\`,
+                background: `linear-gradient(${gradientAngle}deg, ${gradientColor1}, ${gradientColor2})`,
               }}
             />
 

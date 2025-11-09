@@ -1,17 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Play, Pause, RotateCcw, X, BarChart3 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Play, Pause, RotateCcw, X, BarChart3, Download, FileJson, Presentation as PresentationIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { motion, AnimatePresence } from "framer-motion"
+import { exportAsJSON, exportAsPDF } from "@/lib/export-utils"
+import type { Slide as SlideType, Presentation } from "@/lib/types"
+import { Progress } from "@/components/ui/progress"
+import PresenterMode from "./presenter-mode"
 
-interface Slide {
-  id: string
-  title: string
-  subtitle?: string
-  content?: string
-  layout: string
-  backgroundColor: string
-  textColor: string
+interface Slide extends SlideType {
   notes?: string
 }
 
@@ -23,11 +21,75 @@ interface PresentationViewerProps {
 export default function PresentationViewer({ slides, presentationTitle }: PresentationViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPresenting, setIsPresenting] = useState(false)
+  const [isPresenterMode, setIsPresenterMode] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [autoPlaySpeed, setAutoPlaySpeed] = useState(5) // seconds
+  const [isExportingPDF, setIsExportingPDF] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [slideTransition, setSlideTransition] = useState<'fade' | 'slide'>('slide')
 
   const currentSlide = slides[currentIndex]
+
+  // Export handlers
+  const handleExportJSON = async () => {
+    const presentation: Presentation = {
+      id: 'exported-presentation',
+      title: presentationTitle,
+      slides: slides,
+    }
+    await exportAsJSON(presentation)
+  }
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true)
+    setExportProgress(0)
+
+    const presentation: Presentation = {
+      id: 'exported-presentation',
+      title: presentationTitle,
+      slides: slides,
+    }
+
+    try {
+      await exportAsPDF(presentation, (current, total) => {
+        setExportProgress(Math.round((current / total) * 100))
+      })
+    } catch (error) {
+      console.error('PDF export failed:', error)
+    } finally {
+      setIsExportingPDF(false)
+      setExportProgress(0)
+    }
+  }
+
+  // Helper function to get background style
+  const getBackgroundStyle = (slide: Slide) => {
+    if (slide.image?.position === 'background') {
+      return {
+        backgroundImage: `url(${slide.image.url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+
+    if (slide.gradient) {
+      const { type, colors, angle } = slide.gradient
+      if (type === 'linear') {
+        return {
+          background: `linear-gradient(${angle || 135}deg, ${colors.join(', ')})`,
+        }
+      } else if (type === 'radial') {
+        return {
+          background: `radial-gradient(circle, ${colors.join(', ')})`,
+        }
+      }
+    }
+
+    return {
+      backgroundColor: slide.backgroundColor,
+    }
+  }
 
   // Auto-play functionality
   useEffect(() => {
@@ -69,6 +131,18 @@ export default function PresentationViewer({ slides, presentationTitle }: Presen
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isPlaying, isPresenting, showNotes])
 
+  // Show presenter mode
+  if (isPresenterMode) {
+    return (
+      <PresenterMode
+        slides={slides}
+        initialSlideIndex={currentIndex}
+        onExit={() => setIsPresenterMode(false)}
+      />
+    )
+  }
+
+  // Show fullscreen presentation
   if (isPresenting) {
     return (
       <PresentationMode
@@ -96,28 +170,75 @@ export default function PresentationViewer({ slides, presentationTitle }: Presen
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
         {/* Main viewer */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden mb-4 flex items-center justify-center p-8">
-            <div
-              className="w-full h-full max-w-4xl aspect-video rounded-lg shadow-2xl flex flex-col justify-center"
-              style={{
-                backgroundColor: currentSlide.backgroundColor,
-                color: currentSlide.textColor,
-              }}
-            >
-              {currentSlide.layout === "title" ? (
-                <div className="flex flex-col items-center justify-center h-full gap-6 px-12 text-center">
-                  <h1 className="text-6xl font-bold leading-tight">{currentSlide.title}</h1>
-                  <p className="text-2xl opacity-75">{currentSlide.subtitle}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col h-full p-12 gap-6">
-                  <h2 className="text-5xl font-bold">{currentSlide.title}</h2>
-                  <div className="flex-1 text-lg leading-relaxed whitespace-pre-wrap overflow-y-auto">
-                    {currentSlide.content}
+          <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden mb-4 flex items-center justify-center p-8 relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentIndex}
+                initial={
+                  slideTransition === 'fade'
+                    ? { opacity: 0 }
+                    : { x: 100, opacity: 0 }
+                }
+                animate={{ x: 0, opacity: 1 }}
+                exit={
+                  slideTransition === 'fade'
+                    ? { opacity: 0 }
+                    : { x: -100, opacity: 0 }
+                }
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="w-full h-full max-w-4xl aspect-video rounded-lg shadow-2xl flex flex-col justify-center absolute"
+                style={{
+                  ...getBackgroundStyle(currentSlide),
+                  color: currentSlide.textColor,
+                  fontFamily: currentSlide.fontFamily || 'system-ui',
+                }}
+              >
+                {currentSlide.layout === "title" ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-6 px-12 text-center">
+                    <h1
+                      className="font-bold leading-tight"
+                      style={{
+                        fontSize: `${currentSlide.titleFontSize || 72}px`,
+                        letterSpacing: currentSlide.letterSpacing ? `${currentSlide.letterSpacing}px` : undefined,
+                      }}
+                    >
+                      {currentSlide.title}
+                    </h1>
+                    {currentSlide.subtitle && (
+                      <p
+                        className="opacity-75"
+                        style={{
+                          fontSize: `${(currentSlide.contentFontSize || 32) * 0.7}px`,
+                        }}
+                      >
+                        {currentSlide.subtitle}
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="flex flex-col h-full p-12 gap-6">
+                    <h2
+                      className="font-bold"
+                      style={{
+                        fontSize: `${(currentSlide.titleFontSize || 72) * 0.8}px`,
+                      }}
+                    >
+                      {currentSlide.title}
+                    </h2>
+                    <div
+                      className="flex-1 leading-relaxed whitespace-pre-wrap overflow-y-auto"
+                      style={{
+                        fontSize: `${currentSlide.contentFontSize || 28}px`,
+                        lineHeight: currentSlide.lineHeight || 1.6,
+                        letterSpacing: currentSlide.letterSpacing ? `${currentSlide.letterSpacing}px` : undefined,
+                      }}
+                    >
+                      {currentSlide.content}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Controls */}
@@ -180,6 +301,52 @@ export default function PresentationViewer({ slides, presentationTitle }: Presen
                 Notes
               </Button>
 
+              {/* Transition selector */}
+              <select
+                value={slideTransition}
+                onChange={(e) => setSlideTransition(e.target.value as 'fade' | 'slide')}
+                className="h-8 text-xs px-2 rounded border border-border bg-background text-foreground"
+                title="Slide transition effect"
+              >
+                <option value="slide">Slide</option>
+                <option value="fade">Fade</option>
+              </select>
+
+              {/* Export buttons */}
+              <Button
+                onClick={handleExportJSON}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                title="Export as JSON"
+              >
+                <FileJson className="h-4 w-4" />
+                JSON
+              </Button>
+
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isExportingPDF}
+                title="Export as PDF"
+              >
+                <Download className="h-4 w-4" />
+                {isExportingPDF ? 'Exporting...' : 'PDF'}
+              </Button>
+
+              <Button
+                onClick={() => setIsPresenterMode(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                title="Open presenter view with notes"
+              >
+                <PresentationIcon className="h-4 w-4" />
+                Presenter
+              </Button>
+
               <Button
                 onClick={() => setIsPresenting(true)}
                 size="sm"
@@ -190,6 +357,17 @@ export default function PresentationViewer({ slides, presentationTitle }: Presen
               </Button>
             </div>
           </div>
+
+          {/* PDF Export Progress */}
+          {isExportingPDF && (
+            <div className="mt-4 p-4 bg-card rounded-lg border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">Exporting PDF...</span>
+                <span className="text-xs text-muted-foreground">{exportProgress}%</span>
+              </div>
+              <Progress value={exportProgress} className="h-2" />
+            </div>
+          )}
         </div>
 
         {/* Thumbnails sidebar */}
@@ -260,24 +438,86 @@ function PresentationMode({ slide, onExit, onNext, onPrev }: PresentationModePro
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [onNext, onPrev, onExit])
 
+  // Get background style for presentation mode
+  const getBackgroundStyle = () => {
+    if (slide.image?.position === 'background') {
+      return {
+        backgroundImage: `url(${slide.image.url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+
+    if (slide.gradient) {
+      const { type, colors, angle } = slide.gradient
+      if (type === 'linear') {
+        return {
+          background: `linear-gradient(${angle || 135}deg, ${colors.join(', ')})`,
+        }
+      } else if (type === 'radial') {
+        return {
+          background: `radial-gradient(circle, ${colors.join(', ')})`,
+        }
+      }
+    }
+
+    return {
+      backgroundColor: slide.backgroundColor,
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center cursor-none"
       style={{
-        backgroundColor: slide.backgroundColor,
+        ...getBackgroundStyle(),
         color: slide.textColor,
+        fontFamily: slide.fontFamily || 'system-ui',
       }}
       onClick={onNext}
     >
       {slide.layout === "title" ? (
         <div className="flex flex-col items-center justify-center gap-8 text-center px-12">
-          <h1 className="text-7xl font-bold leading-tight">{slide.title}</h1>
-          <p className="text-3xl opacity-75">{slide.subtitle}</p>
+          <h1
+            className="font-bold leading-tight"
+            style={{
+              fontSize: `${slide.titleFontSize || 96}px`,
+              letterSpacing: slide.letterSpacing ? `${slide.letterSpacing}px` : undefined,
+            }}
+          >
+            {slide.title}
+          </h1>
+          {slide.subtitle && (
+            <p
+              className="opacity-75"
+              style={{
+                fontSize: `${(slide.contentFontSize || 48) * 0.7}px`,
+              }}
+            >
+              {slide.subtitle}
+            </p>
+          )}
         </div>
       ) : (
         <div className="flex flex-col w-full h-full p-16 gap-8 justify-center">
-          <h2 className="text-6xl font-bold">{slide.title}</h2>
-          <div className="text-2xl leading-relaxed flex-1 whitespace-pre-wrap">{slide.content}</div>
+          <h2
+            className="font-bold"
+            style={{
+              fontSize: `${(slide.titleFontSize || 96) * 0.8}px`,
+            }}
+          >
+            {slide.title}
+          </h2>
+          <div
+            className="leading-relaxed flex-1 whitespace-pre-wrap"
+            style={{
+              fontSize: `${slide.contentFontSize || 36}px`,
+              lineHeight: slide.lineHeight || 1.6,
+              letterSpacing: slide.letterSpacing ? `${slide.letterSpacing}px` : undefined,
+            }}
+          >
+            {slide.content}
+          </div>
         </div>
       )}
 

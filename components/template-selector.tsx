@@ -48,11 +48,11 @@ export default function TemplateSelector({ onSelect, selectedId }: TemplateSelec
           <button
             key={template.id}
             onClick={() => onSelect(template)}
-            className={\`group relative rounded-lg overflow-hidden transition-all text-left \${
+            className={`group relative rounded-lg overflow-hidden transition-all text-left ${
               selectedId === template.id
                 ? "ring-2 ring-primary shadow-lg"
                 : "ring-1 ring-border hover:ring-primary/50 hover:shadow-md"
-            }\`}
+            }`}
           >
             {/* Template Preview */}
             <div
