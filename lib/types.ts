@@ -38,6 +38,11 @@ export interface Slide {
   letterSpacing?: number
   lineHeight?: number
   textColumns?: number
+  gradient?: {
+    type: "linear" | "radial"
+    colors: string[]
+    angle?: number
+  }
   image?: {
     url: string
     width?: number
