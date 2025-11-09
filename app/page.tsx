@@ -34,10 +34,16 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => (window.location.href = "/editor")}
+                onClick={() => (window.location.href = "/login")}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => (window.location.href = "/signup")}
                 className="rounded-full bg-gradient-to-r from-primary to-secondary px-6 py-2 text-sm font-semibold text-primary-foreground transition-all hover:shadow-lg"
               >
-                Get Started
+                Sign Up
               </button>
               <button
                 onClick={toggleTheme}
