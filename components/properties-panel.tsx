@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import AIAssistPanel from "@/components/ai-assist-panel"
+import OllamaAIAssistant from "@/components/ollama-ai-assistant"
 import TemplateSelector from "@/components/template-selector"
 import MediaUploadPanel from "@/components/media-upload-panel"
 import ShapesPanel from "@/components/shapes-panel"
@@ -119,12 +120,15 @@ export default function PropertiesPanel({ slide, onUpdate, onApplyTemplate }: Pr
   return (
     <div className="flex flex-col p-4 gap-4 h-full overflow-y-auto">
       <Tabs defaultValue="properties" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6 text-xs">
           <TabsTrigger value="properties" className="text-xs">
-            Properties
+            Props
           </TabsTrigger>
           <TabsTrigger value="text" className="text-xs">
             Text
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="text-xs">
+            AI
           </TabsTrigger>
           <TabsTrigger value="shapes" className="text-xs">
             Shapes
@@ -133,7 +137,7 @@ export default function PropertiesPanel({ slide, onUpdate, onApplyTemplate }: Pr
             Media
           </TabsTrigger>
           <TabsTrigger value="templates" className="text-xs">
-            Templates
+            Theme
           </TabsTrigger>
         </TabsList>
 
@@ -301,6 +305,10 @@ export default function PropertiesPanel({ slide, onUpdate, onApplyTemplate }: Pr
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-4">
+          <OllamaAIAssistant onSlideGenerated={handleContentGenerated} />
         </TabsContent>
 
         <TabsContent value="shapes" className="space-y-4">
